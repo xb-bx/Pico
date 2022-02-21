@@ -1,6 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System;
+using System.Reflection;
+
 namespace Pico;
 
 public class TabsBuffer : BufferBase
@@ -8,14 +10,20 @@ public class TabsBuffer : BufferBase
     public static string[] Help = 
             new string[]
             {
+                $"PICO v{Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion}",
+                "Source code - https://github.com/xb-bx/Pico",
+                "",
+                "",
+                "",
                 "Use arrows to move",
                 "Backspace to delete",
-                "Ctrl + T - next buffer",
-                "Ctrl + Q - close current buffer",
-                "Ctrl + S - save buffer",
-                "Ctrl + H - show help",
+                "Ctrl + T - Next buffer",
+                "Ctrl + Q - Close current buffer",
+                "Ctrl + S - Save buffer",
+                "Ctrl + H - Show help",
                 "Ctrl + N - Toggle line numbers",
                 "Ctrl + R - Reload current buffer",
+                "Ctrl + C - Close editor"
             };
 
 
@@ -29,7 +37,11 @@ public class TabsBuffer : BufferBase
     public override void Render(CharBuffer buf)
     {
         if (Buffers.Count == 0)
+        {
+            Console.CursorVisible = true;
+            Console.Clear();
             Environment.Exit(0);
+        }
         var header = string.Join("", Buffers.Select((x, i) => $"| {(i == CurrentTab ? "[" : "")}{ x.Name }{(i == CurrentTab ? "]" : "")} "));
         for (int i = 0; i < header.Length && i < buf.Width; i++)
             buf[i, 0] = header[i];
