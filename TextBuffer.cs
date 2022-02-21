@@ -114,7 +114,14 @@ public class TextBuffer : BufferBase
                 break;
             case ConsoleKey.Enter when Editable:
                 {
-                    Lines.Insert(Y + CursorY, "");
+                    string split = "";
+                    var line = Lines[Y + CursorY];
+                    if(X + CursorX < line.Length)
+                    {
+                        split = line.Substring(X + CursorX);
+                        Lines[Y + CursorY] = line.Remove(X + CursorX);
+                    }
+                    Lines.Insert(Y + CursorY + 1, split);
                     CursorY++;
                     Name = unsaved;
                     X = 0;
