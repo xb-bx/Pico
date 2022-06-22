@@ -28,6 +28,7 @@ public class TabsBuffer : BufferBase
 
 
     public List<BufferBase> Buffers { get; set; }
+    public override string Name => Buffers[CurrentTab].Name;
     public int CurrentTab;
     public TabsBuffer(int w, int h)
     {

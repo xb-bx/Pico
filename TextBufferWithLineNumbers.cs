@@ -4,12 +4,13 @@ namespace Pico;
 public class TextBufferWithLineNumbers : BufferBase
 {
     public TextBuffer Child { get; set; }
+    public override string Name => Child.Name;
     public bool EnabledNumbers = true;
+    public bool Edited => Child.Edited;
     private int size = 2;
     public TextBufferWithLineNumbers(TextBuffer child, int w, int h)
     {
         Child = child;
-        Name = Child.Name;
         (Width, Height) = (w, h);
         child.Width = w - 3;
         child.Height = h;
@@ -38,7 +39,6 @@ public class TextBufferWithLineNumbers : BufferBase
             if (redirectToChild)
                 Child.Input(buffer, keyInfo);
         }
-        Name = Child.Name;
         RerenderNeeded = RerenderNeeded || Child.RerenderNeeded;
     }
     public override void Render(CharBuffer buffer)

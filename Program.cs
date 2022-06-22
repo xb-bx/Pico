@@ -1,6 +1,9 @@
 using System.IO;
 using System.Collections.Generic;
 using System;
+using System.Linq;
+using System.Diagnostics;
+
 namespace Pico;
 public class Program
 {
@@ -13,17 +16,17 @@ public class Program
             var helpbuf = new TextBuffer("help", "help", 0, 0, false);
             helpbuf.Lines.AddRange(TabsBuffer.Help);
             buffers.Add(new TextBufferWithLineNumbers(helpbuf, 0, 0));
-        }        
-        else 
+        }
+        else
         {
-            foreach(var arg in args)
+            foreach (var arg in args)
             {
                 var fileBuf = new TextBuffer(arg, Path.GetFileName(arg), 0, 0, true);
-                if(File.Exists(arg))
+                if (File.Exists(arg))
                 {
                     fileBuf.Lines.AddRange(File.ReadAllLines(arg));
                 }
-                else 
+                else
                 {
                     fileBuf.Lines.Add("");
                 }
@@ -50,40 +53,81 @@ public class Program
         tabs.RerenderNeeded = true;
         var ds = ((Span<char>)debug);
         var bs = ((Span<char>)buf);
-        Console.CancelKeyPress += (_, _) => 
+        Console.CancelKeyPress += (o, e) =>
         {
+            e.Cancel = true;
+            if (tabs.Buffers.OfType<TextBufferWithLineNumbers>().Any(x => x.Edited))
+            {
+                Console.Clear();
+                Console.WriteLine("There're unsaved buffers? Save all and quit[Y], Discard changes[N], Cancel[C]?");
+                var key = Console.ReadLine();
+                switch (key)
+                {
+                    case "Y":
+                        foreach (var buf in tabs.Buffers.OfType<TextBufferWithLineNumbers>().Where(x => x.Child.Editable && x.Edited).Select(x => x.Child))
+                        {
+                            File.WriteAllLines(buf.Path, buf.Lines);
+                        }
+                        e.Cancel = false;
+                        break;
+                    case "N": e.Cancel = false; break;
+                    default:
+                        Console.Clear();
+                        Span<char> b = stackalloc char[(w + 1) * h];
+                        var main = new CharBuffer(b, 0, 0, w, h, w);
+                        var buff = new CharBuffer(b, 0, 0, w, h - 1, w);
+                        var debug = new CharBuffer(b, 0, h - 1, w - 1, 1, w);
+                        tabs.RerenderNeeded = true;
+                        tabs.Render(buff);
+                        DebugLine.Instance.Render(debug);
+                        Console.Out.Write(main.Buffer);
+                        Console.CursorLeft = Console.CursorTop = 0;
+                        return;
+                }
+            }
             Console.Clear();
             Console.CursorVisible = true;
         };
         while (true)
         {
-            int cursorX = Console.CursorLeft;
-            int cursorY = Console.CursorTop;
-            Console.CursorVisible = false;
-            if (tabs.RerenderNeeded)
+            try
             {
-                bs.Clean();
-                tabs.Render(buf);
-                Console.CursorLeft = 0;
-                Console.CursorTop = 0;
-                Console.Out.Write(bs);
-                Console.CursorLeft = cursorX;
-                Console.CursorTop = cursorY;
+                int cursorX = Console.CursorLeft;
+                int cursorY = Console.CursorTop;
+                Console.CursorVisible = false;
+                if (tabs.RerenderNeeded)
+                {
+                    bs.Clean();
+                    tabs.Render(buf);
+                    Console.CursorLeft = 0;
+                    Console.CursorTop = 0;
+                    Console.Out.Write(bs);
+                    Console.CursorLeft = cursorX;
+                    Console.CursorTop = cursorY;
 
+                }
+                if (DebugLine.Instance.RerenderNeeded)
+                {
+                    ds.Clean();
+                    DebugLine.Instance.Render(debug);
+                    Console.CursorLeft = 0;
+                    Console.CursorTop = debug.OffsetY;
+                    Console.Out.Write(ds);
+                    Console.CursorLeft = cursorX;
+                    Console.CursorTop = cursorY;
+                }
+                Console.CursorVisible = true;
+                tabs.Input(buf, Console.ReadKey(true));
             }
-            if (DebugLine.Instance.RerenderNeeded)
+
+            catch (Exception e)
             {
-                ds.Clean();
-                DebugLine.Instance.Render(debug);
-                Console.CursorLeft = 0;
-                Console.CursorTop = debug.OffsetY;
-                Console.Out.Write(ds);
-                Console.CursorLeft = cursorX;
-                Console.CursorTop = cursorY;
+                Console.WriteLine(e.ToString());
+                Console.WriteLine(DebugLine.Instance.Debug);
+                return;
             }
-            Console.CursorVisible = true;
-            tabs.Input(buf, Console.ReadKey(true));
         }
     }
+
 
 }

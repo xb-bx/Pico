@@ -6,16 +6,21 @@ namespace Pico;
 public class TextBuffer : BufferBase
 {
     public List<string> Lines { get; private set; }
+    public override string Name 
+    {
+        get => Edited ? unsaved : saved;
+    }
     public readonly string Path;
     private string unsaved, saved;
     public bool Editable;
+    public bool Edited { get; private set; } 
     public int CursorX, CursorY;
     public int X, Y;
     public TextBuffer(string path, string name, int width, int height, bool editable = true)
     {
-        (Path, Name, Width, Height, Editable) = (path, name, width, height, editable);
-        unsaved = Name + '*';
-        saved = Name;
+        (Path, Width, Height, Editable) = (path, width, height, editable);
+        unsaved = name + '*';
+        saved = name;
         Lines = new(64);
 
     }
@@ -28,68 +33,12 @@ public class TextBuffer : BufferBase
                     Lines.Clear();
                     Lines.AddRange(File.ReadAllLines(Path));
                     RerenderNeeded = true;
-                    Name = saved;
+                    Edited = false;
                 }
                 break;
-            case ConsoleKey.LeftArrow when (keyinfo.Modifiers & ConsoleModifiers.Control) > 0:
-                {
-                    if (CursorX > Lines[CursorY + Y].Length)
-                    {
-                        CursorX = Lines[CursorY + Y].Length - 1;
-                        X = 0;
-                        RerenderNeeded = true;
-                    }
-                    else if (X + CursorX < Lines[CursorY + Y].Length)
-                    {
-                        var l = Lines[CursorY + Y];
-                        CursorX--;
-                        do
-                        {
-                            CursorX--;
-                        }
-                        while (X + CursorX > 0 && l[X + CursorX] != ' ');
-                        if (CursorX < 0)
-                        {
-                            CursorX = 0;
-                            X += CursorX;
-                        }
-                        if (X < 0)
-                        {
-                            X = 0;
-                            RerenderNeeded = true;
-                        }
-                    }
-                    break;
-                }
             case ConsoleKey.LeftArrow:
                 {
                     CursorX--;
-                    break;
-                }
-            case ConsoleKey.RightArrow when (keyinfo.Modifiers & ConsoleModifiers.Control) > 0:
-                {
-                    if (X + CursorX < Lines[CursorY + Y].Length)
-                    {
-                        var l = Lines[CursorY + Y];
-                        CursorX++;
-                        do
-                        {
-                            CursorX++;
-                        }
-                        while (X + CursorX < l.Length && l[X + CursorX] != ' ');
-                        if (X + CursorX > Width)
-                        {
-                            var x = X;
-                            X += CursorX - Width;
-                            CursorX -= X;
-                            RerenderNeeded = true;
-                        }
-                        if (X < 0)
-                        {
-                            X = 0;
-                            RerenderNeeded = true;
-                        }
-                    }
                     break;
                 }
             case ConsoleKey.RightArrow:
@@ -109,21 +58,21 @@ public class TextBuffer : BufferBase
                 }
             case ConsoleKey.S when (keyinfo.Modifiers & ConsoleModifiers.Control) > 0 && Editable:
                 File.WriteAllLines(Path, Lines);
-                Name = saved;
+                Edited = false;
                 RerenderNeeded = true;
                 break;
             case ConsoleKey.Enter when Editable:
                 {
                     string split = "";
-                    var line = Lines[Y + CursorY];
-                    if(X + CursorX < line.Length)
+                    var line = Lines[CursorY];
+                    if(CursorX < line.Length)
                     {
-                        split = line.Substring(X + CursorX);
-                        Lines[Y + CursorY] = line.Remove(X + CursorX);
+                        split = line.Substring(CursorX);
+                        Lines[CursorY] = line.Remove(CursorX);
                     }
-                    Lines.Insert(Y + CursorY + 1, split);
+                    Lines.Insert(CursorY + 1, split);
                     CursorY++;
-                    Name = unsaved;
+                    Edited = true;
                     X = 0;
                     CursorX = 0;
                     RerenderNeeded = true;
@@ -131,22 +80,22 @@ public class TextBuffer : BufferBase
                 }
             case ConsoleKey.Backspace when Editable:
                 {
-                    var line = Lines[Y + CursorY];
-                    var start = X + CursorX - 1;
+                    var line = Lines[CursorY];
+                    var start = CursorX - 1;
                     if (start >= 0 && start < line.Length)
                     {
-                        Lines[Y + CursorY] = line.Remove(X + CursorX - 1, 1);
+                        Lines[CursorY] = line.Remove(CursorX - 1, 1);
                         CursorX--;
-                        Name = unsaved;
+                        Edited = true;
                         RerenderNeeded = true;
                     }
                     else if (start == -1 && string.IsNullOrWhiteSpace(line))
                     {
-                        Lines.RemoveAt(Y + CursorY);
+                        Lines.RemoveAt(CursorY);
                         CursorY--;
-                        if (Y + CursorY > 0 && Lines.Count > 0)
+                        if (CursorY >= 0 && Lines.Count >= 0)
                         {
-                            line = Lines[Y + CursorY];
+                            line = Lines[CursorY];
 
                             if (line.Length < Width)
                             {
@@ -165,37 +114,36 @@ public class TextBuffer : BufferBase
                         }
                         if(Lines.Count == 0)
                             Lines.Add("");
-                        Name = unsaved;
+                        Edited = true;
                         RerenderNeeded = true;
                     }
-                    else if (start == -1 && Y + CursorY > 0)
+                    else if (start == -1 && CursorY > 0)
                     {
-                        Lines.RemoveAt(Y + CursorY);
-                        Lines[Y + CursorY - 1] += line;
-                        var newline = Lines[Y + CursorY - 1];
+                        Lines.RemoveAt(CursorY);
+                        var oldlen = Lines[CursorY - 1].Length;
+                        Lines[CursorY - 1] += line;
+                        var newline = Lines[CursorY - 1];
                         CursorY--;
                         if (newline.Length < Width)
                         {
                             X = 0;
-                            CursorX = newline.Length - 1;
+                            CursorX = oldlen;
                         }
                         else
                         {
                             X = newline.Length - Width;
-                            CursorX = newline.Length;
+                            CursorX = oldlen;
                         }
-                        Name = unsaved;
+                        Edited = true;
                         RerenderNeeded = true;
                     }
                 }
                 break;
             case ConsoleKey k when Editable:
                 {
-                    var line = Lines[Y + CursorY];
-                    //if(X + CursorX >= line.Length)
-                        
-                    Lines[Y + CursorY] = line.Insert(X + CursorX, keyinfo.KeyChar.ToString());
-                    Name = unsaved;
+                    var line = Lines[CursorY];
+                    Lines[CursorY] = line.Insert(CursorX, keyinfo.KeyChar.ToString());
+                    Edited = true;
                     CursorX++;
                     RerenderNeeded = true;
                 }
@@ -203,37 +151,37 @@ public class TextBuffer : BufferBase
 
         }
         int rawx = CursorX, rawy = CursorY;
-        if (CursorY >= Height && CursorY < Lines.Count)
+        if (CursorY - Y >= Height && CursorY - Y < Lines.Count)
         {
             Y++;
             RerenderNeeded = true;
         }
-        else if (CursorY < 0)
+        else if (CursorY - Y < 0)
         {
             Y--;
             RerenderNeeded = true;
         }
-        //CursorY.Clamp(0, Math.Min(Lines.Count + 1, Height + 1));
         CursorY.Clamp(0, Lines.Count);
         int curycl = CursorY;
-        if (CursorX >= Width && Lines[CursorY + Y].Length > Width && (X + 1 + CursorX) < Lines[CursorY + Y].Length)
+        CursorX.Clamp(0, Lines[CursorY].Length + 1);
+        if (CursorX - X >= Width && Lines[CursorY].Length >= Width && CursorX <= Lines[CursorY].Length)
         {
             X++;
             RerenderNeeded = true;
         }
-        else if (CursorX < 0)
+        else if (CursorX - X < 0)
         {
-            X--;
+            X = CursorX - Width;
             RerenderNeeded = true;
         }
-        CursorY.Clamp(0, Math.Min(Lines.Count, Height));
         var xb = X;
         X.Clamp(0, int.MaxValue);
-        Y.Clamp(0, Lines.Count - CursorY);
-        CursorX.Clamp(0, Math.Min(Lines[Y + CursorY].Length - X + 1, Width));
-        int actualX = buf.OffsetX + CursorX;
-        int actualY = buf.OffsetY + CursorY;
-        DebugLine.Instance.Debug = $"{Y + 1 + CursorY} {X + 1 + CursorX}";
+        Y.Clamp(0, Lines.Count);
+        int actualX = CursorX - X;
+        actualX.Clamp(0, Width);
+        actualX += buf.OffsetX;
+        DebugLine.Instance.Debug = $"{CursorY} {CursorX}";
+        int actualY = buf.OffsetY + (CursorY - Y);
         Console.CursorLeft = actualX;
         Console.CursorTop = actualY;
     }
@@ -256,7 +204,9 @@ public class TextBuffer : BufferBase
             }
         }
         RerenderNeeded = false;
-        int actualX = buf.OffsetX + CursorX;
+        int actualX = CursorX - X;
+        actualX.Clamp(0, Width);
+        actualX += buf.OffsetX;
         int actualY = buf.OffsetY + CursorY;
         Console.CursorLeft = actualX;
         Console.CursorTop = actualY;

@@ -5,7 +5,7 @@ public class DebugLine : BufferBase
 {
     private string debug = "";
     public string Debug { get => debug; set { RerenderNeeded = true; debug = value; } }
-
+    public override string Name => null!;
     public static DebugLine Instance = new();
     public override void Render(CharBuffer buf)
     {

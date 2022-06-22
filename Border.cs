@@ -4,6 +4,7 @@ namespace Pico;
 public class Border : BufferBase
 {
     public BufferBase Child;
+    public override string Name => Child.Name;
     public Border(BufferBase child, int width, int height)
     {
         Child = child;
